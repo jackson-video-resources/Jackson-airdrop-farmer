@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Airdrop Farming Network</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #08080c;
+    color: #e0e0e8;
+    font-family: 'Inter', -apple-system, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background glow */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(88, 40, 220, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(0, 200, 255, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(200, 50, 255, 0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 32px 60px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 42px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #a78bfa, #06b6d4, #a78bfa);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 4s ease-in-out infinite;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .header .subtitle {
+    font-size: 14px;
+    color: #6b7280;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .header .wallet-addr {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #4b5563;
+    margin-top: 8px;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #c084fc, #22d3ee);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+
+  /* Network map (SVG) */
+  .network-section {
+    position: relative;
+    margin-bottom: 48px;
+  }
+
+  .network-canvas {
+    width: 100%;
+    height: 520px;
+  }
+
+  .network-canvas svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Chain node styles */
+  .chain-node {
+    cursor: default;
+  }
+
+  .chain-node .ring {
+    fill: none;
+    stroke-width: 2;
+    opacity: 0.6;
+  }
+
+  .chain-node .core {
+    opacity: 0.9;
+  }
+
+  .chain-node .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    fill: #e0e0e8;
+    text-anchor: middle;
+  }
+
+  .chain-node .sub-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    fill: #6b7280;
+    text-anchor: middle;
+  }
+
+  /* Bridge lines */
+  .bridge-line {
+    stroke-width: 1.5;
+    fill: none;
+    opacity: 0.4;
+  }
+
+  .bridge-line.active {
+    opacity: 0.7;
+    stroke-dasharray: 8, 4;
+    animation: dash 20s linear infinite;
+  }
+
+  @keyframes dash {
+    to { stroke-dashoffset: -240; }
+  }
+
+  /* Particle dots on bridges */
+  .bridge-particle {
+    r: 2;
+    opacity: 0.9;
+  }
+
+  /* Glow filter */
+  .glow-filter {
+    filter: url(#glow);
+  }
+
+  /* Protocol grid */
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .protocols-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+
+  .protocol-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .protocol-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  .protocol-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .protocol-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: #d1d5db;
+    margin-bottom: 4px;
+  }
+
+  .protocol-type {
+    font-size: 10px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .protocol-chains {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .chain-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #9ca3af;
+  }
+
+  /* Transaction log */
+  .tx-section {
+    margin-bottom: 48px;
+  }
+
+  .tx-timeline {
+    position: relative;
+    padding-left: 24px;
+  }
+
+  .tx-timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(167, 139, 250, 0.4), rgba(6, 182, 212, 0.4), transparent);
+  }
+
+  .tx-entry {
+    position: relative;
+    padding: 8px 0 16px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .tx-entry::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 12px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid var(--dot-color, #a78bfa);
+    background: #08080c;
+  }
+
+  .tx-entry.failed::before {
+    border-color: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+  }
+
+  .tx-entry.success::before {
+    border-color: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+  }
+
+  .tx-chain-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--chain-color, #9ca3af);
+    white-space: nowrap;
+    min-width: 72px;
+    text-align: center;
+  }
+
+  .tx-desc {
+    font-size: 13px;
+    color: #d1d5db;
+    flex: 1;
+  }
+
+  .tx-hash {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #4b5563;
+  }
+
+  .tx-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+
+  /* Wallet fleet grid */
+  .wallet-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 48px;
+  }
+
+  .wallet-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    position: relative;
+  }
+
+  .wallet-card.primary {
+    border-color: rgba(167, 139, 250, 0.3);
+    background: rgba(167, 139, 250, 0.04);
+  }
+
+  .wallet-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #c084fc;
+    margin-bottom: 4px;
+  }
+
+  .wallet-addr-short {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #4b5563;
+    margin-bottom: 8px;
+  }
+
+  .wallet-chains {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    flex-wrap: wrap;
+  }
+
+  .wallet-chain-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    opacity: 0.7;
+  }
+
+  .wallet-chain-dot.funded { opacity: 1; box-shadow: 0 0 6px var(--color); }
+  .wallet-chain-dot.empty { opacity: 0.15; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .footer-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #374151;
+    letter-spacing: 1px;
+  }
+
+  /* Balance table */
+  .balance-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    margin-bottom: 48px;
+  }
+
+  .balance-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 16px 12px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .balance-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--chain-color);
+    opacity: 0.7;
+  }
+
+  .balance-chain {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--chain-color);
+    margin-bottom: 2px;
+  }
+
+  .balance-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: #e0e0e8;
+  }
+
+  .balance-unit {
+    font-size: 10px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  @media (max-width: 900px) {
+    .balance-grid { grid-template-columns: repeat(4, 1fr); }
+    .wallet-grid { grid-template-columns: repeat(3, 1fr); }
+    .stats-bar { gap: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>AIRDROP FARMING NETWORK</h1>
+    <div class="subtitle">Multi-Chain Transaction Map</div>
+    <div class="wallet-addr">Fleet: 0xcDa2A31D...3b945cB &middot; 10 wallets &middot; 7 chains &middot; 12 protocols</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-value">7</div>
+      <div class="stat-label">Chains</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">12</div>
+      <div class="stat-label">Protocols</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">10</div>
+      <div class="stat-label">Wallets</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">40+</div>
+      <div class="stat-label">Transactions</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">18</div>
+      <div class="stat-label">Task Types</div>
+    </div>
+  </div>
+
+  <!-- Network Map SVG -->
+  <div class="network-section">
+    <div class="section-title">Bridge Network</div>
+    <div class="network-canvas">
+      <svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+          </filter>
+          <filter id="glow-strong">
+            <feGaussianBlur stdDeviation="8" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          <linearGradient id="bridge-grad-1" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.3"/>
+          </linearGradient>
+          <radialGradient id="eth-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.15"/>
+            <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Ambient glow behind Ethereum -->
+        <circle cx="500" cy="250" r="120" fill="url(#eth-glow)"/>
+
+        <!-- Bridge lines (Ethereum → L2s) -->
+        <!-- Base -->
+        <path d="M500,250 Q380,120 220,100" class="bridge-line active" stroke="#3b82f6" filter="url(#glow)"/>
+        <circle cx="0" cy="0" r="2.5" fill="#3b82f6" class="bridge-particle">
+          <animateMotion dur="3s" repeatCount="indefinite" path="M500,250 Q380,120 220,100"/>
+        </circle>
+
+        <!-- Scroll -->
+        <path d="M500,250 Q600,130 780,90" class="bridge-line active" stroke="#f5a623" filter="url(#glow)"/>
+        <circle cx="0" cy="0" r="2.5" fill="#f5a623" class="bridge-particle">
+          <animateMotion dur="3.5s" repeatCount="indefinite" path="M500,250 Q600,130 780,90"/>
+        </circle>
+
+        <!-- Linea -->
+        <path d="M500,250 Q320,250 140,280" class="bridge-line active" stroke="#61dafb" filter="url(#glow)"/>
+        <circle cx="0" cy="0" r="2.5" fill="#61dafb" class="bridge-particle">
+          <animateMotion dur="4s" repeatCount="indefinite" path="M500,250 Q320,250 140,280"/>
+        </circle>
+
+        <!-- zkSync -->
+        <path d="M500,250 Q650,280 860,300" class="bridge-line active" stroke="#8b5cf6" filter="url(#glow)"/>
+        <circle cx="0" cy="0" r="2.5" fill="#8b5cf6" class="bridge-particle">
+          <animateMotion dur="3.2s" repeatCount="indefinite" path="M500,250 Q650,280 860,300"/>
+        </circle>
+
+        <!-- Arbitrum -->
+        <path d="M500,250 Q350,380 200,430" class="bridge-line active" stroke="#28a0f0" filter="url(#glow)"/>
+        <circle cx="0" cy="0" r="2.5" fill="#28a0f0" class="bridge-particle">
+          <animateMotion dur="2.8s" repeatCount="indefinite" path="M500,250 Q350,380 200,430"/>
+        </circle>
+
+        <!-- Optimism -->
+        <path d="M500,250 Q650,380 800,430" class="bridge-line active" stroke="#ff0420" filter="url(#glow)"/>
+        <circle cx="0" cy="0" r="2.5" fill="#ff0420" class="bridge-particle">
+          <animateMotion dur="3.7s" repeatCount="indefinite" path="M500,250 Q650,380 800,430"/>
+        </circle>
+
+        <!-- Cross-L2 Orbiter bridge lines (faint) -->
+        <path d="M220,100 Q500,200 780,90" class="bridge-line" stroke="#22d3ee" stroke-dasharray="4,6" opacity="0.15"/>
+        <path d="M220,100 Q300,350 200,430" class="bridge-line" stroke="#22d3ee" stroke-dasharray="4,6" opacity="0.15"/>
+        <path d="M780,90 Q820,200 860,300" class="bridge-line" stroke="#22d3ee" stroke-dasharray="4,6" opacity="0.15"/>
+        <path d="M200,430 Q500,450 800,430" class="bridge-line" stroke="#22d3ee" stroke-dasharray="4,6" opacity="0.15"/>
+
+        <!-- Chain Nodes -->
+
+        <!-- Ethereum (center) -->
+        <g class="chain-node" transform="translate(500,250)">
+          <circle r="44" fill="rgba(167, 139, 250, 0.08)" stroke="#a78bfa" stroke-width="2" opacity="0.5"/>
+          <circle r="36" fill="rgba(167, 139, 250, 0.05)" stroke="#a78bfa" stroke-width="1" opacity="0.8"/>
+          <circle r="28" fill="#a78bfa" opacity="0.15"/>
+          <!-- ETH diamond -->
+          <polygon points="0,-18 12,-2 0,6 -12,-2" fill="#a78bfa" opacity="0.8"/>
+          <polygon points="0,6 12,-2 0,22 -12,-2" fill="#7c3aed" opacity="0.6"/>
+          <text y="42" class="label" fill="#a78bfa">ETHEREUM</text>
+          <text y="54" class="sub-label">0.1096 ETH</text>
+        </g>
+
+        <!-- Base -->
+        <g class="chain-node" transform="translate(220,100)">
+          <circle r="32" fill="rgba(59, 130, 246, 0.08)" stroke="#3b82f6" stroke-width="2" opacity="0.5"/>
+          <circle r="24" fill="#3b82f6" opacity="0.15"/>
+          <circle r="10" fill="#3b82f6" opacity="0.7"/>
+          <text y="44" class="label" fill="#3b82f6">BASE</text>
+          <text y="56" class="sub-label">0.0013 ETH</text>
+          <text y="-40" font-family="JetBrains Mono" font-size="8" fill="#6b7280" text-anchor="middle">Uniswap &middot; Aerodrome &middot; Aave &middot; Zora</text>
+        </g>
+
+        <!-- Scroll -->
+        <g class="chain-node" transform="translate(780,90)">
+          <circle r="32" fill="rgba(245, 166, 35, 0.08)" stroke="#f5a623" stroke-width="2" opacity="0.5"/>
+          <circle r="24" fill="#f5a623" opacity="0.15"/>
+          <circle r="10" fill="#f5a623" opacity="0.7"/>
+          <text y="44" class="label" fill="#f5a623">SCROLL</text>
+          <text y="56" class="sub-label">0.0017 ETH</text>
+          <text y="-40" font-family="JetBrains Mono" font-size="8" fill="#6b7280" text-anchor="middle">SyncSwap &middot; Ambient &middot; Aave</text>
+        </g>
+
+        <!-- Linea -->
+        <g class="chain-node" transform="translate(140,280)">
+          <circle r="32" fill="rgba(97, 218, 251, 0.08)" stroke="#61dafb" stroke-width="2" opacity="0.5"/>
+          <circle r="24" fill="#61dafb" opacity="0.15"/>
+          <circle r="10" fill="#61dafb" opacity="0.7"/>
+          <text y="44" class="label" fill="#61dafb">LINEA</text>
+          <text y="56" class="sub-label">0.0017 ETH</text>
+          <text y="-40" font-family="JetBrains Mono" font-size="8" fill="#6b7280" text-anchor="middle">SyncSwap &middot; Aave</text>
+        </g>
+
+        <!-- zkSync -->
+        <g class="chain-node" transform="translate(860,300)">
+          <circle r="32" fill="rgba(139, 92, 246, 0.08)" stroke="#8b5cf6" stroke-width="2" opacity="0.5"/>
+          <circle r="24" fill="#8b5cf6" opacity="0.15"/>
+          <circle r="10" fill="#8b5cf6" opacity="0.7"/>
+          <text y="44" class="label" fill="#8b5cf6">zkSync</text>
+          <text y="56" class="sub-label">0.0031 ETH</text>
+          <text y="-40" font-family="JetBrains Mono" font-size="8" fill="#6b7280" text-anchor="middle">SyncSwap</text>
+        </g>
+
+        <!-- Arbitrum -->
+        <g class="chain-node" transform="translate(200,430)">
+          <circle r="32" fill="rgba(40, 160, 240, 0.08)" stroke="#28a0f0" stroke-width="2" opacity="0.5"/>
+          <circle r="24" fill="#28a0f0" opacity="0.15"/>
+          <circle r="10" fill="#28a0f0" opacity="0.7"/>
+          <text y="44" class="label" fill="#28a0f0">ARBITRUM</text>
+          <text y="56" class="sub-label">0.0020 ETH</text>
+          <text y="-40" font-family="JetBrains Mono" font-size="8" fill="#6b7280" text-anchor="middle">Uniswap &middot; Aave &middot; Pendle</text>
+        </g>
+
+        <!-- Optimism -->
+        <g class="chain-node" transform="translate(800,430)">
+          <circle r="32" fill="rgba(255, 4, 32, 0.08)" stroke="#ff0420" stroke-width="2" opacity="0.5"/>
+          <circle r="24" fill="#ff0420" opacity="0.15"/>
+          <circle r="10" fill="#ff0420" opacity="0.7"/>
+          <text y="44" class="label" fill="#ff0420">OPTIMISM</text>
+          <text y="56" class="sub-label">0.0020 ETH</text>
+          <text y="-40" font-family="JetBrains Mono" font-size="8" fill="#6b7280" text-anchor="middle">Velodrome &middot; Aave</text>
+        </g>
+
+        <!-- Orbiter cross-L2 label -->
+        <text x="500" y="480" font-family="JetBrains Mono" font-size="9" fill="#22d3ee" text-anchor="middle" opacity="0.4">
+          &#x2014; Orbiter cross-L2 bridges &#x2014;
+        </text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Balances -->
+  <div class="section-title">Current W00 Balances</div>
+  <div class="balance-grid">
+    <div class="balance-card" style="--chain-color: #a78bfa">
+      <div class="balance-chain" style="--chain-color: #a78bfa">Ethereum</div>
+      <div class="balance-value">0.1096</div>
+      <div class="balance-unit">ETH</div>
+    </div>
+    <div class="balance-card" style="--chain-color: #3b82f6">
+      <div class="balance-chain" style="--chain-color: #3b82f6">Base</div>
+      <div class="balance-value">0.0013</div>
+      <div class="balance-unit">ETH</div>
+    </div>
+    <div class="balance-card" style="--chain-color: #f5a623">
+      <div class="balance-chain" style="--chain-color: #f5a623">Scroll</div>
+      <div class="balance-value">0.0017</div>
+      <div class="balance-unit">ETH</div>
+    </div>
+    <div class="balance-card" style="--chain-color: #61dafb">
+      <div class="balance-chain" style="--chain-color: #61dafb">Linea</div>
+      <div class="balance-value">0.0017</div>
+      <div class="balance-unit">ETH</div>
+    </div>
+    <div class="balance-card" style="--chain-color: #8b5cf6">
+      <div class="balance-chain" style="--chain-color: #8b5cf6">zkSync</div>
+      <div class="balance-value">0.0031</div>
+      <div class="balance-unit">ETH</div>
+    </div>
+    <div class="balance-card" style="--chain-color: #28a0f0">
+      <div class="balance-chain" style="--chain-color: #28a0f0">Arbitrum</div>
+      <div class="balance-value">0.0020</div>
+      <div class="balance-unit">ETH</div>
+    </div>
+    <div class="balance-card" style="--chain-color: #ff0420">
+      <div class="balance-chain" style="--chain-color: #ff0420">Optimism</div>
+      <div class="balance-value">0.0020</div>
+      <div class="balance-unit">ETH</div>
+    </div>
+  </div>
+
+  <!-- Protocols -->
+  <div class="section-title">Active Protocols</div>
+  <div class="protocols-grid">
+    <div class="protocol-card" style="--accent: #ff007a">
+      <div class="protocol-name">Uniswap V3</div>
+      <div class="protocol-type">DEX &middot; AMM</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #3b82f6">Base</span>
+        <span class="chain-badge" style="color: #28a0f0">Arbitrum</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #00d395">
+      <div class="protocol-name">SyncSwap</div>
+      <div class="protocol-type">DEX &middot; AMM</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #f5a623">Scroll</span>
+        <span class="chain-badge" style="color: #61dafb">Linea</span>
+        <span class="chain-badge" style="color: #8b5cf6">zkSync</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #ff0420">
+      <div class="protocol-name">Velodrome</div>
+      <div class="protocol-type">DEX &middot; ve(3,3)</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #ff0420">Optimism</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #0052ff">
+      <div class="protocol-name">Aerodrome</div>
+      <div class="protocol-type">DEX &middot; ve(3,3)</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #3b82f6">Base</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #22d3ee">
+      <div class="protocol-name">Ambient</div>
+      <div class="protocol-type">DEX &middot; Concentrated LP</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #f5a623">Scroll</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #b6509e">
+      <div class="protocol-name">Aave V3</div>
+      <div class="protocol-type">Lending &middot; Money Market</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #3b82f6">Base</span>
+        <span class="chain-badge" style="color: #f5a623">Scroll</span>
+        <span class="chain-badge" style="color: #61dafb">Linea</span>
+        <span class="chain-badge" style="color: #28a0f0">Arb</span>
+        <span class="chain-badge" style="color: #ff0420">OP</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #1c64f2">
+      <div class="protocol-name">EigenLayer</div>
+      <div class="protocol-type">Restaking &middot; LST</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #a78bfa">Ethereum</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #06b899">
+      <div class="protocol-name">Pendle</div>
+      <div class="protocol-type">Yield &middot; PT Trading</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #28a0f0">Arbitrum</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #2b6def">
+      <div class="protocol-name">Orbiter</div>
+      <div class="protocol-type">Bridge &middot; Cross-L2</div>
+      <div class="protocol-chains">
+        <span class="chain-badge">All L2s</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #5c34d4">
+      <div class="protocol-name">Stargate</div>
+      <div class="protocol-type">Bridge &middot; LayerZero</div>
+      <div class="protocol-chains">
+        <span class="chain-badge">All L2s</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #fff">
+      <div class="protocol-name">Zora</div>
+      <div class="protocol-type">NFT &middot; 1155 Minting</div>
+      <div class="protocol-chains">
+        <span class="chain-badge" style="color: #3b82f6">Base</span>
+      </div>
+    </div>
+    <div class="protocol-card" style="--accent: #6b7280">
+      <div class="protocol-name">Contract Deploy</div>
+      <div class="protocol-type">Smart Contract &middot; EVM</div>
+      <div class="protocol-chains">
+        <span class="chain-badge">All L2s</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction Timeline -->
+  <div class="tx-section">
+    <div class="section-title">Transaction History</div>
+    <div class="tx-timeline">
+
+      <div class="tx-entry failed" style="--dot-color: #ef4444">
+        <span class="tx-chain-tag" style="--chain-color: #a78bfa">Ethereum</span>
+        <div>
+          <div class="tx-desc">Bridge attempt (wrong address — ETH lost)</div>
+          <div class="tx-hash">0x4348a7ce...22bba9</div>
+        </div>
+        <span class="tx-amount" style="color: #ef4444">-$6.00</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #a78bfa">Ethereum</span>
+        <div>
+          <div class="tx-desc">Bridge ETH &rarr; Base via OptimismPortal</div>
+          <div class="tx-hash">0x31938442...c9950</div>
+        </div>
+        <span class="tx-amount">0.01 ETH</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #3b82f6; color: #3b82f6">Base</span>
+        <div>
+          <div class="tx-desc">Wrap ETH &rarr; WETH</div>
+          <div class="tx-hash">0x54bda329...c8732</div>
+        </div>
+        <span class="tx-amount">0.0003 ETH</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #3b82f6; color: #3b82f6">Base</span>
+        <div>
+          <div class="tx-desc">Unwrap WETH &rarr; ETH</div>
+          <div class="tx-hash">0xb834d208...13a44</div>
+        </div>
+        <span class="tx-amount">0.0003 ETH</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #3b82f6; color: #3b82f6">Base</span>
+        <div>
+          <div class="tx-desc">Deploy minimal contract</div>
+          <div class="tx-hash">0x241a9656...39bb62</div>
+        </div>
+        <span class="tx-amount">gas only</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #a78bfa">Ethereum</span>
+        <div>
+          <div class="tx-desc">Bridge ETH &rarr; Scroll via L1ScrollMessenger</div>
+        </div>
+        <span class="tx-amount">0.002 ETH</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #a78bfa">Ethereum</span>
+        <div>
+          <div class="tx-desc">Bridge ETH &rarr; Linea via L1MessageService</div>
+        </div>
+        <span class="tx-amount">0.002 ETH</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #a78bfa">Ethereum</span>
+        <div>
+          <div class="tx-desc">Bridge ETH &rarr; zkSync via DiamondProxy</div>
+        </div>
+        <span class="tx-amount">0.002 ETH</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #a78bfa">Ethereum</span>
+        <div>
+          <div class="tx-desc">Bridge ETH &rarr; Arbitrum via Delayed Inbox</div>
+        </div>
+        <span class="tx-amount">0.002 ETH</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #22c55e">
+        <span class="tx-chain-tag" style="--chain-color: #a78bfa">Ethereum</span>
+        <div>
+          <div class="tx-desc">Bridge ETH &rarr; Optimism via OptimismPortal</div>
+        </div>
+        <span class="tx-amount">0.002 ETH</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #3b82f6">
+        <span class="tx-chain-tag" style="--chain-color: #3b82f6; color: #3b82f6">Base</span>
+        <div>
+          <div class="tx-desc">Distribute W00 &rarr; W01-W08 (8 transfers)</div>
+        </div>
+        <span class="tx-amount">~0.000283 each</span>
+      </div>
+
+      <div class="tx-entry success" style="--dot-color: #8b5cf6">
+        <span class="tx-chain-tag" style="--chain-color: #8b5cf6; color: #8b5cf6">zkSync</span>
+        <div>
+          <div class="tx-desc">Distribute W00 &rarr; W01-W09 (9 transfers)</div>
+        </div>
+        <span class="tx-amount">~0.000123 each</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Wallet Fleet -->
+  <div class="section-title">Wallet Fleet</div>
+  <div class="wallet-grid">
+    <div class="wallet-card primary">
+      <div class="wallet-id">W00</div>
+      <div class="wallet-addr-short">0xcDa2...945cB</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot funded" style="--color: #a78bfa; background: #a78bfa" title="Ethereum"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6" title="Base"></div>
+        <div class="wallet-chain-dot funded" style="--color: #f5a623; background: #f5a623" title="Scroll"></div>
+        <div class="wallet-chain-dot funded" style="--color: #61dafb; background: #61dafb" title="Linea"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6" title="zkSync"></div>
+        <div class="wallet-chain-dot funded" style="--color: #28a0f0; background: #28a0f0" title="Arbitrum"></div>
+        <div class="wallet-chain-dot funded" style="--color: #ff0420; background: #ff0420" title="Optimism"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W01</div>
+      <div class="wallet-addr-short">0x213A...5997</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W02</div>
+      <div class="wallet-addr-short">0x56b2...417B</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W03</div>
+      <div class="wallet-addr-short">0x.......</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W04</div>
+      <div class="wallet-addr-short">0x.......</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W05</div>
+      <div class="wallet-addr-short">0x.......</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W06</div>
+      <div class="wallet-addr-short">0x.......</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W07</div>
+      <div class="wallet-addr-short">0x.......</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W08</div>
+      <div class="wallet-addr-short">0x.......</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot funded" style="--color: #3b82f6; background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="wallet-id">W09</div>
+      <div class="wallet-addr-short">0x.......</div>
+      <div class="wallet-chains">
+        <div class="wallet-chain-dot empty" style="background: #a78bfa"></div>
+        <div class="wallet-chain-dot empty" style="background: #3b82f6"></div>
+        <div class="wallet-chain-dot empty" style="background: #f5a623"></div>
+        <div class="wallet-chain-dot empty" style="background: #61dafb"></div>
+        <div class="wallet-chain-dot funded" style="--color: #8b5cf6; background: #8b5cf6"></div>
+        <div class="wallet-chain-dot empty" style="background: #28a0f0"></div>
+        <div class="wallet-chain-dot empty" style="background: #ff0420"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task Types -->
+  <div class="section-title">Automated Task Types</div>
+  <div class="protocols-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+    <div class="protocol-card" style="--accent: #a78bfa">
+      <div class="protocol-name">Wrap/Unwrap</div>
+      <div class="protocol-type">ETH &harr; WETH</div>
+    </div>
+    <div class="protocol-card" style="--accent: #f472b6">
+      <div class="protocol-name">DEX Swap</div>
+      <div class="protocol-type">ETH &harr; USDC round-trips</div>
+    </div>
+    <div class="protocol-card" style="--accent: #34d399">
+      <div class="protocol-name">Aave Lend</div>
+      <div class="protocol-type">Supply &amp; Withdraw ETH</div>
+    </div>
+    <div class="protocol-card" style="--accent: #fbbf24">
+      <div class="protocol-name">Bridge</div>
+      <div class="protocol-type">L1&rarr;L2 &amp; Cross-L2</div>
+    </div>
+    <div class="protocol-card" style="--accent: #60a5fa">
+      <div class="protocol-name">Deploy</div>
+      <div class="protocol-type">Smart Contracts</div>
+    </div>
+    <div class="protocol-card" style="--accent: #f87171">
+      <div class="protocol-name">NFT Mint</div>
+      <div class="protocol-type">Zora 1155 Collections</div>
+    </div>
+    <div class="protocol-card" style="--accent: #818cf8">
+      <div class="protocol-name">Restake</div>
+      <div class="protocol-type">EigenLayer via stETH</div>
+    </div>
+    <div class="protocol-card" style="--accent: #2dd4bf">
+      <div class="protocol-name">Yield Trade</div>
+      <div class="protocol-type">Pendle PT Buy/Sell</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-text">AIRDROP FARMER v1.0 &middot; 10 WALLETS &middot; 7 CHAINS &middot; 12 PROTOCOLS &middot; CRON EVERY 4H &middot; FEB 2026</div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.env
+data/wallets.enc.json
+data/activity-log.json
