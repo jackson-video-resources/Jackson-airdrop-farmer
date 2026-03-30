@@ -48,11 +48,12 @@ Any Ubuntu 22.04+ VPS works. DigitalOcean $6/month droplet is sufficient.
 
 ## Quick Setup (One-Shot via Claude Code)
 
-The fastest way to set this up is with the one-shot setup document from the tutorial video:
+1. Open **[SETUP.md](SETUP.md)** on GitHub
+2. Click the **copy button** (top-right corner of the code block)
+3. Open your terminal and run: `claude`
+4. Paste and press Enter
 
-**[Download Setup Document →](https://drive.google.com/your-link-here)**
-
-Paste it into Claude Code and the entire farm is configured automatically.
+Claude Code handles the rest — prerequisites, wallets, funding, deployment. ~10–20 minutes.
 
 ---
 
