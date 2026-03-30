@@ -1,4 +1,4 @@
-# "I Built an AI Airdrop Farmer That Runs 24/7 (Full Setup Tutorial)"
+# "Make $500–$100,000 Automating Airdrops With Claude Code (Full Masterclass)"
 ## Complete Video Outline — Jackson Airdrop Farm
 
 **Total runtime target:** 50–55 minutes
