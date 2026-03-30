@@ -60,7 +60,7 @@ Paste it into Claude Code and the entire farm is configured automatically.
 
 ```bash
 # 1. Clone
-git clone https://github.com/LewisWJackson/airdrop-farmer.git jackson-airdrop-farm
+git clone https://github.com/jackson-video-resources/Jackson-airdrop-farmer.git jackson-airdrop-farm
 cd jackson-airdrop-farm
 
 # 2. Install

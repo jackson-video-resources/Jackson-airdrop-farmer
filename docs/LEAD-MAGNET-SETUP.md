@@ -63,7 +63,7 @@ Once all three checks pass, print:
 Run the following command:
 
 ```bash
-git clone https://github.com/LewisWJackson/airdrop-farmer.git jackson-airdrop-farm
+git clone https://github.com/jackson-video-resources/Jackson-airdrop-farmer.git jackson-airdrop-farm
 ```
 
 Then change into the directory:
@@ -534,7 +534,7 @@ SECURITY REMINDERS:
 
 QUESTIONS OR ISSUES:
   YouTube: https://youtube.com/@lewisjackson
-  GitHub: https://github.com/LewisWJackson/airdrop-farmer
+  GitHub: https://github.com/jackson-video-resources/Jackson-airdrop-farmer
   Leave a comment on the tutorial video
 
 Good luck with the airdrops. 🚀

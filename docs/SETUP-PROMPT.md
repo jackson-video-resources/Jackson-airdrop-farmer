@@ -1,7 +1,7 @@
 # 🌾 Jackson Airdrop Farm — One-Shot Setup
 
 > Seen in Lewis's tutorial at youtube.com/@LewisJackson
-> GitHub: https://github.com/LewisWJackson/airdrop-farmer
+> GitHub: https://github.com/jackson-video-resources/Jackson-airdrop-farmer
 
 ---
 
@@ -73,7 +73,7 @@ Perfect! Prerequisites confirmed. Moving on.
 Run this command to clone the Jackson Airdrop Farm and move into the project directory:
 
 ```bash
-git clone https://github.com/LewisWJackson/airdrop-farmer.git jackson-airdrop-farm && cd jackson-airdrop-farm
+git clone https://github.com/jackson-video-resources/Jackson-airdrop-farmer.git jackson-airdrop-farm && cd jackson-airdrop-farm
 ```
 
 You should now be inside the `jackson-airdrop-farm` folder. Confirm with:
@@ -489,7 +489,7 @@ Transactions logged: 5
 - Your `.env` file contains your encryption key. Do not commit it to git. Do not share it.
 - The farming wallets hold small amounts by design — never send your main holdings here.
 - When an airdrop lands, transfer tokens to your main wallet promptly.
-- The code is open source: https://github.com/LewisWJackson/airdrop-farmer — read it.
+- The code is open source: https://github.com/jackson-video-resources/Jackson-airdrop-farmer — read it.
 
 ---
 
