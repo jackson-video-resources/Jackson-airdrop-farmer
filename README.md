@@ -2,7 +2,7 @@
 
 **Automated on-chain activity farming across MegaETH, Abstract, and Unichain — the 3 chains most likely to airdrop in 2025/26.**
 
-Built by [Lewis Jackson](https://youtube.com/@LewisJackson) | [Full Tutorial Video →](https://youtube.com/@LewisJackson)
+Built by [Lewis Jackson](https://youtube.com/@LewisJackson) | [Full Tutorial Video →]([https://youtube.com/@LewisJackson](https://youtu.be/DtMxScA2gzk))
 
 ---
 
