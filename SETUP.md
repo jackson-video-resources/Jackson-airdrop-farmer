@@ -316,7 +316,13 @@ If the test message fails:
 
 This makes your farmer run 24/7 in the cloud, even when your computer is off.
 
-**Step 9a — Log in to Railway:**
+**Step 9a — Create a Railway account (if you don't have one):**
+
+Tell the user: "First, create a free Railway account here: https://railway.com?referralCode=BLrK89 — come back when you've signed up."
+
+Wait for them to confirm before continuing.
+
+**Step 9b — Log in to Railway:**
 
 ```bash
 railway login
