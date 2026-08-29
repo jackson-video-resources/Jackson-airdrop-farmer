@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { encrypt, decrypt } from "./utils/crypto.js";
@@ -30,6 +30,7 @@ function loadStore(): WalletStore {
 }
 
 function saveStore(store: WalletStore): void {
+  mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
   writeFileSync(WALLET_FILE, JSON.stringify(store, null, 2));
 }
 

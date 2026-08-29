@@ -3,6 +3,7 @@ export type TaskType =
   | "bridge_from_l2"
   | "bridge_orbiter"
   | "bridge_stargate"
+  | "bridge_relay"
   | "dex_swap"
   | "provide_liquidity"
   | "remove_liquidity"
@@ -33,7 +34,10 @@ export interface TaskResult {
   success: boolean;
   txHash?: string;
   error?: string;
-  gasUsed?: bigint;
+  /** Execution gas cost in wei (gasUsed x gasPrice), set on success */
+  gasCostWei?: bigint;
+  /** Same cost converted to USD at the time of execution */
+  gasUsd?: number;
   timestamp: number;
 }
 

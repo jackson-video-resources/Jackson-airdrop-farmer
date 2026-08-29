@@ -106,21 +106,24 @@ Almost there!
 
 Your wallet private keys will be stored on disk in an encrypted file. We need to generate a strong encryption key first.
 
-Run this to generate a 32-byte hex key:
+The key does **not** go in `.env`. `.env` lives in the project folder next to
+`data/wallets.enc.json`, so anything that copies the folder — a backup, a zip, a
+synced directory, an `scp` to a server — would hand over the encrypted wallets
+and the key that opens them together. That makes the encryption decorative. The
+key lives outside the project instead.
+
+Generate it into its own file, readable only by you:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+mkdir -p ~/.airdrop-farm
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" > ~/.airdrop-farm/enc.key
+chmod 600 ~/.airdrop-farm/enc.key
 ```
 
-Copy the output — it'll look like: `a3f9d2e8b1c047...` (64 hex characters)
-
-Now create your `.env` file:
+Now create your `.env` file — no key inside it:
 
 ```bash
 cat > .env << 'EOF'
-# Wallet encryption key — never share this, never commit it to git
-ENCRYPTION_KEY=PASTE_YOUR_KEY_HERE
-
 # Telegram notifications (fill in after Step 6)
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
@@ -133,30 +136,35 @@ TELEGRAM_CHAT_ID=
 EOF
 ```
 
-Then open `.env` and replace `PASTE_YOUR_KEY_HERE` with the key you just generated:
+Because the key is no longer in `.env`, every script that touches wallets needs
+it supplied explicitly. That is what the `ENCRYPTION_KEY="$(cat ...)"` prefix on
+the commands below does — it passes the key to that one command and nothing else.
 
-```bash
-# On Mac/Linux:
-nano .env
-# or: open -a TextEdit .env
-# or: code .env  (if VS Code is installed)
-```
-
-Save the file. Your `.env` should now have `ENCRYPTION_KEY` set.
-
-**Important:** This file is listed in `.gitignore` and will never be committed to git. Keep it safe — if you lose this key, you cannot decrypt your wallet file.
+**Important:** `.env` is listed in `.gitignore` and will never be committed to
+git. `~/.airdrop-farm/enc.key` sits outside the repo entirely. Keep it safe — if
+you lose that key, you cannot decrypt your wallet file, and the 12-word mnemonic
+from Step 7 becomes your only way back in.
 
 ---
 
-## STEP 5 — Verify .env Is Correct
+## STEP 5 — Verify the Key and .env
 
-Let's confirm the key is in place:
+Confirm the key file is the right length. 65 means 64 hex characters plus a
+newline — this prints the count, not the key itself:
+
+```bash
+wc -c < ~/.airdrop-farm/enc.key
+```
+
+Then confirm the key did **not** end up in `.env`. This should print nothing:
 
 ```bash
 grep ENCRYPTION_KEY .env
 ```
 
-You should see `ENCRYPTION_KEY=` followed by your 64-character hex key. If it still says `PASTE_YOUR_KEY_HERE`, go back and edit the file.
+If `wc -c` shows anything other than 65, re-run the generate command in Step 4.
+If the `grep` prints a line, remove that line from `.env` — the key belongs only
+in `~/.airdrop-farm/enc.key`.
 
 ---
 
@@ -212,7 +220,7 @@ You should get a message in Telegram and `Telegram OK!` in your terminal.
 Now let's generate the wallet fleet:
 
 ```bash
-npx tsx src/index.ts
+ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/index.ts
 ```
 
 The interactive menu will appear. Select option **1 — Generate Wallet Fleet** and enter `10` when asked how many wallets.
@@ -257,7 +265,7 @@ Exit the menu (option 8 — Exit).
 Run this to display W00's address clearly:
 
 ```bash
-npx tsx src/index.ts
+ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/index.ts
 ```
 
 Select option **6 — Export Wallet Addresses** and copy the first address (W00).
@@ -310,7 +318,7 @@ Typical confirmation time: 3–5 minutes on Ethereum mainnet.
 Once ETH is in W00, we need to bridge it to the three farming chains and distribute it across all 10 wallets.
 
 ```bash
-npx tsx src/fund-all-chains.ts
+ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/fund-all-chains.ts
 ```
 
 This script will:
@@ -324,7 +332,7 @@ This step takes approximately 5–10 minutes depending on bridge confirmation ti
 When it finishes, confirm wallets have balances:
 
 ```bash
-npx tsx src/check-all-balances.ts
+ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/check-all-balances.ts
 ```
 
 You should see non-zero balances for W00–W09 on at least the primary chains.
@@ -336,7 +344,7 @@ You should see non-zero balances for W00–W09 on at least the primary chains.
 Before going live, let's do one test run manually to confirm everything works end to end:
 
 ```bash
-npx tsx src/scheduled-farm.ts --no-jitter
+ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/scheduled-farm.ts --no-jitter
 ```
 
 The `--no-jitter` flag skips the startup randomisation and runs immediately.
@@ -374,33 +382,74 @@ How do you want to run the farmer?
 Grab the cheapest KVM plan at https://hostinger.com/lewisjackson10. Hostinger gives you a server IP and root password.
 
 **2. Connect and install:**
+
+Install Node from NodeSource, not from Ubuntu's own repo. `apt install nodejs`
+gives Node 18 on Ubuntu 24.04 — below the version 20 minimum in STEP 1 — and the
+farm fails on it:
+
 ```bash
 ssh root@YOUR_VPS_IP
-apt update && apt install -y nodejs npm git
+apt-get update
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs git
+npm install -g pm2 tsx
 git clone https://github.com/jackson-video-resources/Jackson-airdrop-farmer.git jackson-airdrop-farm
-cd jackson-airdrop-farm && npm install && npm install -g pm2
+cd jackson-airdrop-farm && npm install
 ```
 
-**3. Recreate your `.env` on the VPS** with the same `ENCRYPTION_KEY`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID`.
+Confirm the version before continuing — anything below v20 will fail later at a
+confusing point:
 
-**4. Copy your encrypted wallet file up to the VPS:**
+```bash
+node --version
+```
 
-Your `data/wallets.enc.json` holds your encrypted wallets (safe — keys are encrypted with your ENCRYPTION_KEY). From your local machine:
+**3. Put the key on the VPS by itself.** The Step 4 rule matters more on a
+rented server: the key must not travel with the wallet file, and must not sit
+inside the deploy directory. Paste the key from `~/.airdrop-farm/enc.key` when
+prompted — it is not echoed:
+
+```bash
+# on the VPS
+mkdir -p /root/.airdrop-farm && chmod 700 /root/.airdrop-farm
+read -r -s KEY && printf '%s' "$KEY" > /root/.airdrop-farm/enc.key && unset KEY
+chmod 400 /root/.airdrop-farm/enc.key
+```
+
+**4. Recreate your `.env` on the VPS** with `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_CHAT_ID`, and `NODE_ENV=production` — no `ENCRYPTION_KEY` line.
+
+**5. Copy your encrypted wallet file up to the VPS:**
+
+From your local machine, copy that one file and nothing else:
 ```bash
 scp data/wallets.enc.json root@YOUR_VPS_IP:~/jackson-airdrop-farm/data/
 ```
 
-**5. Start it 24/7:**
+Do not `scp -r` the whole project folder — that sweeps up `.env` alongside the
+wallet file, which is the pairing this layout exists to prevent. With the key at
+`/root/.airdrop-farm/enc.key` (mode `0400`, outside the deploy directory), a
+leaked copy of the project folder is not enough to open the wallets.
+
+**6. Start it 24/7:**
+
+`ecosystem.config.cjs` does not read the key file, so pass the key when
+registering the process. PM2 captures the environment at start and `pm2 save`
+records it for restarts:
 ```bash
-pm2 start ecosystem.config.cjs && pm2 save && pm2 startup
+ENCRYPTION_KEY="$(cat /root/.airdrop-farm/enc.key)" pm2 start ecosystem.config.cjs && pm2 save && pm2 startup
 ```
 
 Run the command `pm2 startup` prints. Your farmer is now live and survives reboots.
 
-**6. Confirm it's running:**
+**7. Confirm it's running:**
 ```bash
 pm2 logs jackson-airdrop-farm
 ```
+
+Check the logs before trusting the schedule — a missing key fails at decrypt
+time rather than at start time, so the process can look healthy and still not be
+farming.
 
 You should see log output from the farmer's startup sequence.
 
@@ -411,10 +460,12 @@ Your farm will now fire at 8am, 2pm, and 8pm UTC every day automatically.
 ### Option B: PM2 Local Deployment
 
 ```bash
-npm run start:pm2
+ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npm run start:pm2
 ```
 
-This runs `pm2 start ecosystem.config.cjs` and saves the process list.
+This runs `pm2 start ecosystem.config.cjs` and saves the process list. The key
+prefix is required — PM2 captures the environment at registration, and without
+it every scheduled run fails to decrypt the wallet file.
 
 Confirm it's running:
 ```bash
@@ -458,10 +509,10 @@ Transactions logged: 5
 
 | Task | Command |
 |------|---------|
-| Check all balances | `npx tsx src/check-all-balances.ts` |
-| View activity log | `npx tsx src/index.ts` → option 5 |
-| Export wallet addresses | `npx tsx src/index.ts` → option 6 |
-| Run farm immediately | `npx tsx src/scheduled-farm.ts --no-jitter` |
+| Check all balances | `ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/check-all-balances.ts` |
+| View activity log | `ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/index.ts` → option 5 |
+| Export wallet addresses | `ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/index.ts` → option 6 |
+| Run farm immediately | `ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/scheduled-farm.ts --no-jitter` |
 | Check PM2 status | `pm2 list` |
 | View PM2 logs | `pm2 logs jackson-airdrop-farm --lines 50` |
 | Restart on the VPS | `pm2 restart jackson-airdrop-farm` |
@@ -471,8 +522,8 @@ Transactions logged: 5
 ## Weekly Maintenance Routine
 
 1. Check Telegram — any failed runs?
-2. Run `npx tsx src/check-all-balances.ts` — are wallets above 0.001 ETH each?
-3. If low on any chain: top up W00 with ETH and re-run `npx tsx src/fund-all-chains.ts`
+2. Run `ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/check-all-balances.ts` — are wallets above 0.001 ETH each?
+3. If low on any chain: top up W00 with ETH and re-run `ENCRYPTION_KEY="$(cat ~/.airdrop-farm/enc.key)" npx tsx src/fund-all-chains.ts`
 4. Check if MegaETH, Abstract, or Unichain have announced airdrop dates — increase activity if so
 
 ---

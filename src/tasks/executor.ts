@@ -8,6 +8,7 @@ import { swapAmbient } from "../protocols/ambient.js";
 import { swapVelodrome } from "../protocols/velodrome.js";
 import { bridgeToL2 } from "../protocols/bridge-official.js";
 import { bridgeOrbiter } from "../protocols/orbiter-bridge.js";
+import { bridgeViaRelay } from "../protocols/bridge-unichain.js";
 import { bridgeStargate } from "../protocols/stargate.js";
 import { deployMinimalContract } from "../protocols/deploy-contract.js";
 import { supplyETH, withdrawETH } from "../protocols/aave-v3.js";
@@ -33,7 +34,7 @@ import {
 } from "../utils/random.js";
 import { log } from "../utils/logger.js";
 import { formatEth } from "../utils/gas.js";
-import { logTaskCost } from "../cost-logger.js";
+import { logTaskCost, getGasCost } from "../cost-logger.js";
 import type { Task, TaskResult, FarmingSession } from "./types.js";
 
 /** Default amount in wei (0.001 ETH) */
@@ -143,7 +144,9 @@ export async function executeTask(
       case "unwrap_eth": {
         const signer = getSigner(task.chain, privateKey);
         let amount = (task.params.amountWei as bigint) ?? DEFAULT_AMOUNT;
-        // Check actual WETH balance to avoid "burn amount exceeds balance"
+        // Unwrap the whole position. The wrap and unwrap legs each draw their
+        // own jitter, so unwrapping a jittered amount strands the difference as
+        // WETH every round-trip; draining the balance keeps the pair closed.
         const wethAddr = WETH_ADDRESSES[task.chain.toLowerCase()];
         if (wethAddr) {
           const wethToken = new ethers.Contract(
@@ -157,12 +160,12 @@ export async function executeTask(
           if (wethBal === 0n) {
             throw new Error(`No WETH balance to unwrap on ${task.chain}`);
           }
-          if (wethBal < amount) {
-            amount = wethBal;
+          if (wethBal !== amount) {
             log.info(
-              `Adjusting unwrap amount to actual WETH balance: ${formatEth(amount)}`,
+              `Unwrapping full WETH balance: ${formatEth(wethBal)} (task amount was ${formatEth(amount)})`,
             );
           }
+          amount = wethBal;
         }
         txHash = await unwrapEth(signer, task.chain, amount);
         break;
@@ -183,7 +186,10 @@ export async function executeTask(
         if (tokenInSymbol.toUpperCase() !== "ETH") {
           const erc20 = new ethers.Contract(
             tokenIn,
-            ["function balanceOf(address) view returns (uint256)"],
+            [
+              "function balanceOf(address) view returns (uint256)",
+              "function decimals() view returns (uint8)",
+            ],
             signer,
           );
           const balance: bigint = await erc20.balanceOf(
@@ -193,7 +199,13 @@ export async function executeTask(
             throw new Error(`No ${tokenInSymbol} balance to swap on ${chain}`);
           }
           amount = balance; // swap entire balance back
-          log.info(`Using actual ${tokenInSymbol} balance: ${balance}`);
+          const dec = await erc20
+            .decimals()
+            .then(Number)
+            .catch(() => 18);
+          log.info(
+            `Using actual ${tokenInSymbol} balance: ${ethers.formatUnits(balance, dec)}`,
+          );
         }
 
         if (protocol === "uniswap-v3") {
@@ -259,6 +271,14 @@ export async function executeTask(
         const toChain = task.params.toChain as string;
         const amount = (task.params.amountWei as bigint) ?? DEFAULT_AMOUNT;
         txHash = await bridgeOrbiter(signer, task.chain, toChain, amount);
+        break;
+      }
+
+      case "bridge_relay": {
+        const signer = getSigner(task.chain, privateKey);
+        const toChain = task.params.toChain as string;
+        const amount = (task.params.amountWei as bigint) ?? DEFAULT_AMOUNT;
+        txHash = await bridgeViaRelay(signer, task.chain, toChain, amount);
         break;
       }
 
@@ -364,18 +384,26 @@ export async function executeTask(
       task.type === "eigen_withdraw"
         ? "ethereum"
         : task.chain;
+    // Fetch the receipt once: the cost is both reported on the result and
+    // forwarded to the dashboard, so logTaskCost reuses it rather than
+    // re-fetching. Protocol helpers await tx.wait(), so it is already mined.
+    const cost = await getGasCost(taskChain, txHash);
+
     logTaskCost(
       taskChain,
       txHash,
       task.type,
       undefined,
       task.description,
+      cost,
     ).catch(() => {});
 
     return {
       task,
       success: true,
       txHash,
+      gasCostWei: cost.gasCostWei,
+      gasUsd: cost.gasUsd,
       timestamp: Date.now(),
     };
   } catch (err: unknown) {

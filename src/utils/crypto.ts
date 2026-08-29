@@ -6,7 +6,15 @@ const IV_LENGTH = 16;
 function getKey(): Buffer {
   const hex = process.env.ENCRYPTION_KEY;
   if (!hex || hex.length !== 64) {
-    throw new Error("ENCRYPTION_KEY must be a 64-char hex string (32 bytes)");
+    throw new Error(
+      "ENCRYPTION_KEY must be a 64-char hex string (32 bytes).\n" +
+        "It is deliberately NOT in .env - it lives in a DPAPI-protected blob at\n" +
+        "%LOCALAPPDATA%\\airdrop-farm\\enc.key so that copying the repo (or the\n" +
+        "data/ folder) does not hand over the wallets.\n" +
+        "Run scripts via the helper instead of bare npx:\n" +
+        "    .\\farm.ps1 src/<script>.ts\n" +
+        "See docs/KEY-STORAGE.md.",
+    );
   }
   return Buffer.from(hex, "hex");
 }

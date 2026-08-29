@@ -20,9 +20,32 @@ import { formatEth } from "./utils/gas.js";
 import { log } from "./utils/logger.js";
 import type { Task } from "./tasks/types.js";
 import { PENDLE_MARKETS } from "./protocols/pendle.js";
+import { ORBITER_SOURCE_CHAINS } from "./protocols/orbiter-bridge.js";
 
 /** Minimum balance to farm on a chain (0.0005 ETH) */
 const MIN_BALANCE = ethers.parseEther("0.0005");
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * How many wallet+chain targets to farm per run.
+ *
+ * The original 1-3 was written for a 3-wallet fleet. At 10 wallets it meant
+ * ~2 targets per run regardless of fleet size, so most wallets sat idle for
+ * days - the opposite of what a snapshot rewards.
+ *
+ * Keep the ceiling clear of the task's ExecutionTimeLimit (PT7H): a target
+ * costs ~12 min of tasks plus up to ~20 min of inter-target delay, on top of
+ * up to 2h of startup jitter. 6 targets is ~5h worst case; 10 would sit right
+ * on the 7h limit and risk being killed mid-sequence.
+ */
+const MIN_TARGETS = envInt("FARM_MIN_TARGETS", 3);
+const MAX_TARGETS = Math.max(MIN_TARGETS, envInt("FARM_MAX_TARGETS", 6));
 
 /** Amount per task (0.0003 ETH — small to preserve funds) */
 const TASK_AMOUNT = ethers.parseEther("0.0003");
@@ -218,13 +241,25 @@ function pickTasks(chain: string): Task[] {
     ];
     const otherChains = bridgeableChains.filter((c) => c !== chain);
     const toChain = otherChains[Math.floor(Math.random() * otherChains.length)];
-    tasks.push({
-      type: "bridge_orbiter",
-      chain,
-      protocol: "orbiter",
-      params: { toChain },
-      description: `Orbiter bridge ${chain} → ${toChain}`,
-    });
+    // Orbiter only accepts these chains as a source; newer L2s (unichain,
+    // abstract, megaeth) bridge out through Relay instead.
+    if (ORBITER_SOURCE_CHAINS.includes(chain)) {
+      tasks.push({
+        type: "bridge_orbiter",
+        chain,
+        protocol: "orbiter",
+        params: { toChain },
+        description: `Orbiter bridge ${chain} → ${toChain}`,
+      });
+    } else {
+      tasks.push({
+        type: "bridge_relay",
+        chain,
+        protocol: "relay",
+        params: { toChain },
+        description: `Relay bridge ${chain} → ${toChain}`,
+      });
+    }
   }
 
   if (doZoraMint) {
@@ -284,6 +319,7 @@ function pickTasks(chain: string): Task[] {
 async function main(): Promise<void> {
   // Add random startup jitter so cron doesn't hit exact intervals
   const skipJitter = process.argv.includes("--no-jitter");
+  const dryRun = process.argv.includes("--dry-run");
   const jitterMs = skipJitter ? 0 : randInt(0, 2 * 60 * 60 * 1000);
   if (jitterMs > 0) {
     log.info(`Scheduled farm starting (jitter: ${describeDelay(jitterMs)})...`);
@@ -332,10 +368,27 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Shuffle and pick 1-3 wallet+chain combos to farm this round
+  // Narrow to wallets inside their active window BEFORE selecting. Selection
+  // used to happen first and active hours were checked afterwards, so a
+  // sleeping wallet consumed a slot and the run did nothing with it - raising
+  // the cap alone would not have increased how many wallets actually farm.
+  const eligible = fundedWallets.filter((f) =>
+    shouldBeActive(generatePersonality(f.wallet.index)),
+  );
+  const sleeping = fundedWallets.length - eligible.length;
+  if (sleeping > 0) {
+    log.info(
+      `${sleeping} funded target(s) outside their active hours — not eligible this round.`,
+    );
+  }
+  if (eligible.length === 0) {
+    log.warn("All funded wallets are outside their active hours. Nothing to farm.");
+    return;
+  }
+
   const selected = pickRandom(
-    fundedWallets,
-    Math.min(randInt(1, 3), fundedWallets.length),
+    eligible,
+    Math.min(randInt(MIN_TARGETS, MAX_TARGETS), eligible.length),
   );
 
   log.divider();
@@ -347,14 +400,24 @@ async function main(): Promise<void> {
   }
   log.divider();
 
+  // --dry-run stops here: real balances, real eligibility, real selection, but
+  // no transactions. Lets a change to the selection logic be verified without
+  // committing gas or leaving a wallet mid-sequence.
+  if (dryRun) {
+    log.warn("--dry-run: stopping before execution. No transactions sent.");
+    return;
+  }
+
   let totalTasks = 0;
   let totalSuccess = 0;
+  let totalGasUsd = 0;
 
   for (let idx = 0; idx < selected.length; idx++) {
     const { wallet, chain } = selected[idx];
     const personality = generatePersonality(wallet.index);
 
-    // Check active hours
+    // Re-check active hours. Targets were filtered for this at selection time,
+    // but a run spans hours - a wallet can fall out of its window mid-run.
     if (!shouldBeActive(personality)) {
       log.info(
         `W${String(wallet.index).padStart(2, "0")} sleeping (outside active hours). Skipping.`,
@@ -388,6 +451,7 @@ async function main(): Promise<void> {
 
       if (result.success) {
         totalSuccess++;
+        totalGasUsd += result.gasUsd ?? 0;
         log.success(
           `Task ${i + 1}/${tasks.length} completed ${result.txHash ? `(${result.txHash.slice(0, 14)}...)` : ""}`,
         );
@@ -435,6 +499,7 @@ async function main(): Promise<void> {
           totalTasks++;
           if (result.success) {
             totalSuccess++;
+            totalGasUsd += result.gasUsd ?? 0;
             log.success(
               `EigenLayer deposit completed ${result.txHash ? `(${result.txHash.slice(0, 14)}...)` : ""}`,
             );
@@ -455,7 +520,9 @@ async function main(): Promise<void> {
 
   // Send Telegram summary
   const chains = [...new Set(selected.map((s) => s.chain))];
-  await sendSessionSummary(totalTasks, totalSuccess, chains, 0).catch(() => {});
+  await sendSessionSummary(totalTasks, totalSuccess, chains, totalGasUsd).catch(
+    () => {},
+  );
 }
 
 main().catch((err) => {

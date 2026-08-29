@@ -19,6 +19,9 @@ const CHAIN_ID_CODES: Record<string, bigint> = {
   linea: 9023n,
 };
 
+/** Chains Orbiter accepts as a bridge source (and destination). */
+export const ORBITER_SOURCE_CHAINS = Object.keys(CHAIN_ID_CODES);
+
 /**
  * Encode the destination chain into the transfer amount.
  * Replaces the last 4 digits of the wei amount with the chain identification code.

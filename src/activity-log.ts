@@ -12,7 +12,8 @@ interface ActivityEntry {
   success: boolean;
   txHash?: string;
   error?: string;
-  gasUsed?: string; // stored as string since bigint can't be JSON serialized
+  gasCostWei?: string; // stored as string since bigint can't be JSON serialized
+  gasUsd?: number;
   timestamp: number;
 }
 
@@ -45,7 +46,8 @@ export function logActivity(walletAddress: string, result: TaskResult): void {
     success: result.success,
     txHash: result.txHash,
     error: result.error,
-    gasUsed: result.gasUsed?.toString(),
+    gasCostWei: result.gasCostWei?.toString(),
+    gasUsd: result.gasUsd,
     timestamp: Date.now(),
   });
   writeLog(entries);
@@ -63,19 +65,22 @@ export function getActivitySummary(): {
   totalTxs: number;
   successRate: number;
   gasSpent: string;
+  gasSpentUsd: number;
   byChain: Record<string, number>;
   byProtocol: Record<string, number>;
 } {
   const entries = readLog();
   const successful = entries.filter((e) => e.success).length;
   let gasSpent = 0n;
+  let gasSpentUsd = 0;
   const byChain: Record<string, number> = {};
   const byProtocol: Record<string, number> = {};
 
   for (const entry of entries) {
-    if (entry.gasUsed) {
-      gasSpent += BigInt(entry.gasUsed);
+    if (entry.gasCostWei) {
+      gasSpent += BigInt(entry.gasCostWei);
     }
+    gasSpentUsd += entry.gasUsd ?? 0;
     const chain = entry.task.chain;
     byChain[chain] = (byChain[chain] || 0) + 1;
 
@@ -87,6 +92,7 @@ export function getActivitySummary(): {
     totalTxs: entries.length,
     successRate: entries.length > 0 ? successful / entries.length : 0,
     gasSpent: gasSpent.toString(),
+    gasSpentUsd,
     byChain,
     byProtocol,
   };

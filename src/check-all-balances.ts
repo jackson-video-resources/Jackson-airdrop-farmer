@@ -7,7 +7,7 @@ async function main() {
   const wallets = loadWallets();
   console.log(`Total wallets: ${wallets.length}\n`);
 
-  const chains = ["ethereum", "base", "scroll", "linea", "zksync", "arbitrum", "optimism", "megaeth", "abstract"];
+  const chains = ["ethereum", "base", "scroll", "linea", "zksync", "arbitrum", "optimism", "megaeth", "abstract", "unichain"];
 
   for (const wallet of wallets) {
     const balances: string[] = [];

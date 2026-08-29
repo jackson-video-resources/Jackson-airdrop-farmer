@@ -134,7 +134,16 @@ export function getProvider(chain: string): ethers.JsonRpcProvider {
   const key = chain.toLowerCase();
   if (!providerCache.has(key)) {
     const config = getChain(key);
-    providerCache.set(key, new ethers.JsonRpcProvider(config.rpcUrl));
+    // batchMaxCount:1 - several L2 endpoints accept batched reads but stall on
+    // batched writes, which hangs sendTransaction indefinitely.
+    // staticNetwork - skip chainId auto-detection round trips.
+    providerCache.set(
+      key,
+      new ethers.JsonRpcProvider(config.rpcUrl, config.chainId, {
+        batchMaxCount: 1,
+        staticNetwork: ethers.Network.from(config.chainId),
+      }),
+    );
   }
   return providerCache.get(key)!;
 }

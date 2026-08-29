@@ -6,7 +6,8 @@ import { bridgeToUnichain } from "./protocols/bridge-unichain.js";
 import { formatEth } from "./utils/gas.js";
 import { log } from "./utils/logger.js";
 
-const BRIDGE_AMOUNT = ethers.parseEther("0.015");
+const BRIDGE_AMOUNT = ethers.parseEther(process.env.BRIDGE_AMOUNT_ETH || "0.015");
+const MAINNET_BUFFER = ethers.parseEther(process.env.MAINNET_BUFFER_ETH || "0.005");
 const W00_RESERVE = ethers.parseEther("0.001");
 const SKIP_THRESHOLD = ethers.parseEther("0.0003");
 
@@ -71,9 +72,9 @@ async function main(): Promise<void> {
   const ethBalance = await getProvider("ethereum").getBalance(address);
   log.info(`W00 Ethereum balance: ${formatEth(ethBalance)} ETH`);
 
-  if (ethBalance < BRIDGE_AMOUNT + ethers.parseEther("0.005")) {
+  if (ethBalance < BRIDGE_AMOUNT + MAINNET_BUFFER) {
     log.error(
-      `Not enough ETH on mainnet (need ~${formatEth(BRIDGE_AMOUNT + ethers.parseEther("0.005"))})`,
+      `Not enough ETH on mainnet (need ~${formatEth(BRIDGE_AMOUNT + MAINNET_BUFFER)})`,
     );
     return;
   }

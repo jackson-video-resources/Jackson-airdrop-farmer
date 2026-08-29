@@ -4,6 +4,22 @@ import { log } from "./utils/logger.js";
 
 const DASHBOARD_URL = process.env.AIRDROP_CENTER_URL || "";
 
+// The dashboard is an optional integration. When it is unconfigured, say so
+// once per process rather than on every task -- gas costs are still recorded
+// on each TaskResult regardless of whether they are forwarded anywhere.
+let notifiedDisabled = false;
+
+function costLoggingDisabled(): boolean {
+  if (DASHBOARD_URL) return false;
+  if (!notifiedDisabled) {
+    notifiedDisabled = true;
+    log.info(
+      "Cost dashboard not configured (AIRDROP_CENTER_URL unset) — skipping cost logging"
+    );
+  }
+  return true;
+}
+
 interface CostPayload {
   walletLabel?: string;
   chain: string;
@@ -41,15 +57,24 @@ async function getCachedEthPrice(): Promise<number> {
   return cachedPrice;
 }
 
+export interface GasCost {
+  /** Execution gas cost in wei (gasUsed x gasPrice) */
+  gasCostWei: bigint;
+  gasEth: string;
+  gasUsd: number;
+}
+
+const ZERO_COST: GasCost = { gasCostWei: 0n, gasEth: "0", gasUsd: 0 };
+
 /** Extract gas cost from a transaction receipt */
 export async function getGasCost(
   chain: string,
   txHash: string
-): Promise<{ gasEth: string; gasUsd: string }> {
+): Promise<GasCost> {
   try {
     const provider = getProvider(chain);
     const receipt = await provider.getTransactionReceipt(txHash);
-    if (!receipt) return { gasEth: "0", gasUsd: "0" };
+    if (!receipt) return ZERO_COST;
 
     const gasUsed = receipt.gasUsed;
     const gasPrice = receipt.gasPrice ?? 0n;
@@ -57,22 +82,17 @@ export async function getGasCost(
     const gasEth = ethers.formatEther(gasCostWei);
 
     const ethPrice = await getCachedEthPrice();
-    const gasUsd = ethPrice > 0
-      ? (parseFloat(gasEth) * ethPrice).toFixed(4)
-      : "0";
+    const gasUsd = ethPrice > 0 ? parseFloat(gasEth) * ethPrice : 0;
 
-    return { gasEth, gasUsd };
+    return { gasCostWei, gasEth, gasUsd };
   } catch {
-    return { gasEth: "0", gasUsd: "0" };
+    return ZERO_COST;
   }
 }
 
 /** Log a cost entry to the dashboard */
 export async function logCost(payload: CostPayload): Promise<void> {
-  if (!DASHBOARD_URL) {
-    log.warn("No AIRDROP_CENTER_URL set — skipping cost logging");
-    return;
-  }
+  if (costLoggingDisabled()) return;
 
   try {
     const res = await fetch(`${DASHBOARD_URL}/api/costs`, {
@@ -96,15 +116,23 @@ export async function logCost(payload: CostPayload): Promise<void> {
   }
 }
 
-/** Log gas cost for a completed transaction to the dashboard */
+/**
+ * Log gas cost for a completed transaction to the dashboard.
+ * Pass `cost` when the caller has already fetched the receipt, to avoid a
+ * second `getTransactionReceipt` round-trip.
+ */
 export async function logTaskCost(
   chain: string,
   txHash: string,
   taskType: string,
   walletLabel?: string,
-  description?: string
+  description?: string,
+  cost?: GasCost
 ): Promise<void> {
-  const { gasEth, gasUsd } = await getGasCost(chain, txHash);
+  // Bail before the receipt fetch so an unconfigured dashboard costs no RPC.
+  if (costLoggingDisabled()) return;
+
+  const { gasEth, gasUsd } = cost ?? (await getGasCost(chain, txHash));
 
   await logCost({
     walletLabel,
@@ -112,7 +140,7 @@ export async function logTaskCost(
     txHash,
     type: taskType,
     gasEth,
-    gasUsd,
+    gasUsd: gasUsd.toFixed(4),
     description,
   });
 }

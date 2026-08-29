@@ -25,6 +25,8 @@ const SWAP_ROUTER_ABI = [
 const ERC20_ABI = [
   "function approve(address spender, uint256 amount) returns (bool)",
   "function allowance(address owner, address spender) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
 ];
 
 function getSwapRouter(chain: string): string {
@@ -88,9 +90,21 @@ export async function swapExactInput(
     sqrtPriceLimitX96: 0n,
   };
 
-  log.info(
-    `Swapping ${formatEth(amountIn)} ${isNativeIn ? "ETH" : tokenIn.slice(0, 10)} → ${tokenOut.slice(0, 10)} on ${chain}`,
-  );
+  // formatEth assumes 18 decimals; USDC has 6, so an ETH-formatted USDC amount
+  // prints as 0.000000. Read the token's own decimals for the log line.
+  let inLabel: string;
+  if (isNativeIn) {
+    inLabel = `${formatEth(amountIn)} ETH`;
+  } else {
+    const meta = new ethers.Contract(tokenIn, ERC20_ABI, signer);
+    const [dec, sym] = await Promise.all([
+      meta.decimals().then(Number).catch(() => 18),
+      meta.symbol().catch(() => tokenIn.slice(0, 10)),
+    ]);
+    inLabel = `${ethers.formatUnits(amountIn, dec)} ${sym}`;
+  }
+
+  log.info(`Swapping ${inLabel} → ${tokenOut.slice(0, 10)} on ${chain}`);
 
   const tx = await router.exactInputSingle(params, {
     value: isNativeIn ? amountIn : 0n,
